@@ -22,262 +22,205 @@
 #include <pcl/common/common.h>
 #include <pcl/visualization/cloud_viewer.h>
 
+
 #include "../include/master_ik_data.h"
+#include "../include/robot.h"
 //struct stat st;
 
-typedef std::multimap< const std::vector< double >*, const std::vector< double >* > MultiMapPtr;
-typedef std::map< const std::vector< double >*, double > MapVecDoublePtr;
-typedef std::multimap< std::vector< double >, std::vector< double > > MultiMap;
-typedef std::map< std::vector< double >, double > MapVecDouble;
+typedef std::multimap<const std::vector<double> *, const std::vector<double> *> MultiMapPtr;
+typedef std::map<const std::vector<double> *, double> MapVecDoublePtr;
+typedef std::multimap<std::vector<double>, std::vector<double> > MultiMap;
+typedef std::map<std::vector<double>, double> MapVecDouble;
 typedef std::vector<std::vector<double> > VectorOfVectors;
 struct stat st;
-typedef std::vector<std::pair< std::vector< double >, const std::vector< double >* > > MultiVector;
+typedef std::vector<std::pair<std::vector<double>, const std::vector<double> *> > MultiVector;
 //typedef std::multimap< const std::vector< double >*, const std::vector< double >* > MultiMap;
 
 
 
 
-static bool isIKSuccess( ros::NodeHandle n, ros::Publisher pub, const std::vector<double> &pose,
-                         std::vector<std::vector<double>> &joints, int& numOfSolns)
-{
-
-    ros::ServiceClient client = n.serviceClient<moveit_msgs::GetPositionIK>("/dsr01m1013/compute_ik");
-    moveit_msgs::GetPositionIK srv;
-    srv.request.ik_request.group_name = "arm";
-    srv.request.ik_request.ik_link_name = "link6";
-    std::vector<std::string> joint_name = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6"};
-    srv.request.ik_request.robot_state.joint_state.name = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6"};
-    std::vector<double> joint_position = {0, 0, 0, 0, 0, 0};
-    srv.request.ik_request.robot_state.joint_state.position = {0, 0, 0, 0, 0, 0};
-    srv.request.ik_request.pose_stamped.pose.position.x = pose[0];
-    srv.request.ik_request.pose_stamped.pose.position.y = pose[1];
-    srv.request.ik_request.pose_stamped.pose.position.z = pose[2];
-    srv.request.ik_request.pose_stamped.pose.orientation.x = pose[3];
-    srv.request.ik_request.pose_stamped.pose.orientation.y = pose[4];
-    srv.request.ik_request.pose_stamped.pose.orientation.z = pose[5];
-    srv.request.ik_request.pose_stamped.pose.orientation.w = pose[6];
-    srv.request.ik_request.avoid_collisions = false;
-    srv.request.ik_request.timeout.nsec = 1000;
-//    ROS_INFO("position: %f, %f, %f, %f, %f, %f, %f", pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]);
-
-    // store joints solution
-    // while the new joint is not included in the joint solution continue to send the request
-    std::vector<double> joint;
-    do {
-        ros::Time starsrv = ros::Time::now();
-
-        if (client.call(srv) && srv.response.error_code.val == 1)
-        {
-            // add the joint solution to the vector
-            joint = srv.response.solution.joint_state.position;
-            joints.push_back(joint);
-
-//            double dif = ros::Duration( ros::Time::now() - starsrv).toNSec();
-//        ROS_INFO("Elasped time is %.2lf NanoSeconds.", dif);
-
-        }
-        else
-        {
-
-//        ROS_ERROR("Failed to call service add_two_ints");
-//            double dif = ros::Duration( ros::Time::now() - starsrv).toNSec();
-//        ROS_INFO("Elasped time is %.2lf NanoSeconds.", dif);
-            return false;
-        }
-    // while joint is not in joints
-    } while (std::find(joints.begin(), joints.end(), joint) == joints.end());
-
-
-    return false;
-
-}
-
-
-
-
-
-bool isFloat(std::string s)
-{
+bool isFloat(std::string s) {
     std::istringstream iss(s);
     float dummy;
     iss >> std::noskipws >> dummy;
     return iss && iss.eof();  // Result converted to bool
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     ros::init(argc, argv, "workspace");
     ros::NodeHandle n;
+    ros::AsyncSpinner spinner(1);
+    spinner.start();
+    //create the robot
+    Robot robot("manipulator");
+
     ros::Time startit = ros::Time::now();
-    float resolution = 0.08;  //previous 0.08
-    ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 10);
+    float resolution = 0.3;  //previous 0.08
+    static ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("/visualization_marker", 10, true);
+    static ros::Publisher cube_pub = n.advertise<visualization_msgs::Marker>("/visualization_marker_cube", 10, true);
     ros::Rate loop_rate(10);
 
     pcl::PointCloud<pcl::PointXYZ> cloud;
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ptr = cloud.makeShared();
 
     int count = 0;
-
-    while (ros::ok())
-    {
-        unsigned char max_depth = 16;
-        unsigned char minDepth = 0;
-
-        // A box of radius 1 is created. It will be the size of the robot+1.5. Then the box is discretized by voxels of
-        // specified resolution
-
-        // TODO resolution will be user argument
-        // The center of every voxels are stored in a vector
-
-        sphere_discretization::SphereDiscretization sd;
-        float r = 1;
-        octomap::point3d origin = octomap::point3d(0, 0, 0);  // This point will be the base of the robot
-        octomap::OcTree *tree = sd.generateBoxTree(origin, r, resolution);
-        std::vector< octomap::point3d > new_data;
-        ROS_INFO("Creating the box and discretizing with resolution: %f", resolution);
-        int sphere_count = 0;
-        for (octomap::OcTree::leaf_iterator it = tree->begin_leafs(max_depth), end = tree->end_leafs(); it != end; ++it)
-        {
-            sphere_count++;
-        }
-        new_data.reserve(sphere_count);
-        for (octomap::OcTree::leaf_iterator it = tree->begin_leafs(max_depth), end = tree->end_leafs(); it != end; ++it)
-        {
-            new_data.push_back(it.getCoordinate());
-        }
-
-        ROS_INFO("Total no of spheres now: %lu", new_data.size());
-        ROS_INFO("Please hold ON. Spheres are discretized and all of the poses are checked for Ik solutions. May take some "
-                 "time");
-
-        // A sphere is created in every voxel. The sphere may be created by default or other techniques.
-        // TODO Other techniques need to be modified. the user can specifiy which technique they want to use
-        // TODO The sphere discretization parameter and rotation of every poses will be taken as argument. If the final
-        // joints can rotate (0, 2pi) we dont need to rotate the poses.
-        // Every discretized points on spheres are converted to pose and all the poses are saved in a multimap with their
-        // corresponding sphere centers
-        // If the resolution is 0.01 the programs not responds
-        //TODO seperate raduise and resolutiion
-        float radius = resolution/2;
-
-        VectorOfVectors sphere_coord;
-        sphere_coord.resize( new_data.size() );
-
-        MultiVector pose_col;
-        pose_col.reserve( new_data.size() * 50);
-
-        for (int i = 0; i < new_data.size(); i++)
-        {
-            static std::vector< geometry_msgs::Pose > pose;
-            sd.convertPointToVector(new_data[i], sphere_coord[i]);
-
-            sd.make_sphere_poses(new_data[i], radius, pose);
-            for (int j = 0; j < pose.size(); j++)
-            {
-                static std::vector< double > point_on_sphere;
-                sd.convertPoseToVector(pose[j], point_on_sphere);
-                pose_col.push_back( std::make_pair(point_on_sphere, &sphere_coord[i]));
-            }
-        }
-
-        // Every pose is checked for IK solutions. The reachable poses and the their corresponsing joint solutions are
-        // stored. Only the First joint solution is stored. We may need this solutions in the future. Otherwise we can show
-        // the robot dancing with the joint solutions in a parallel thread
-        // TODO Support for more than 6DOF robots needs to be implemented.
-
-        // Kinematics k;
-
-//        Create the json file and object
-        std::string filename = ros::package::getPath("data_generation") + "/data/reachability.h5";
-        std::string filename_json = ros::package::getPath("data_generation") + "/data/reachability.json";
-        std::ofstream json_file(filename_json);
+//    get time
+    ros::Time begin = ros::Time::now();
 
 
+    unsigned char max_depth = 16;
+    unsigned char minDepth = 0;
 
-        MultiMapPtr pose_col_filter;
-//        VectorOfVectors ik_solutions;
-        master_ik_data ik_solutions;
-//        ik_solutions.reserve( pose_col.size() );
-        progressbar bar(pose_col.size());
-        for (MultiVector::iterator it = pose_col.begin(); it != pose_col.end(); ++it)
-        {
-//            static std::vector< double > joints(6);
-            static std::vector<std::vector<double>> joints(8, std::vector<double>(6));
-            int solns;
+    // A box of radius 1 is created. It will be the size of the robot+1.5. Then the box is discretized by voxels of
+    // specified resolution
 
+    // TODO resolution will be user argument
+    // The center of every voxels are stored in a vector
 
-            if (isIKSuccess(n, marker_pub, it->first, joints, solns))
-            {
-//                ROS_INFO("joint = %f", joints[1] );
-                pose_col_filter.insert( std::make_pair( it->second, &(it->first)));
-                ik_solutions.push_back(joints);
-            }
-            bar.update();
-        }
-
-        ROS_INFO("Total number of poses: %lu", pose_col.size());
-        ROS_INFO("Total number of reachable poses: %lu", pose_col_filter.size());
-
-        // The centers of reachable spheres are stored in a map. This data will be utilized in visualizing the spheres in
-        // the visualizer.
-        // TODO there are several maps are implemented. We can get rid of few maps and run large loops. The complexity of
-        // accessing map is Olog(n)
-
-        MapVecDoublePtr sphere_color;
-        int nb_valide_pose = 0;
-
-        for (MultiMapPtr::iterator it = pose_col_filter.begin(); it != pose_col_filter.end(); ++it)
-        {
-            const std::vector<double>* sphere_coord    = it->first;
-            //const std::vector<double>* point_on_sphere = it->second;
-
-            // Reachability Index D=R/N*100;
-            float d = float(pose_col_filter.count(sphere_coord)) / (pose_col.size() / new_data.size()) * 100;
-//            ROS_INFO("Indice D: %f", d);
-            if(d >= 5.0){
-                sphere_color.insert(std::make_pair(it->first, double(d)));
-            }
-
-        }
-        // create the reachability map
-//        cloud.width = sphere_color.size();
-//        cloud.height = 1;
-        cloud.is_dense = false;
-        cloud.resize (cloud.width * cloud.height);
-
-        for (auto & it : sphere_color)
-        {
-            float x = it.first[0][0];
-            float y = it.first[0][1];
-            float z = it.first[0][2];
-            cloud.push_back(pcl::PointXYZ(x, y, z));
-        }
-
-        ROS_INFO("No of spheres reachable: %lu", sphere_color.size());
-
-//        pcl::visualization::CloudViewer viewer("Simple Cloud Viewer");
-//        viewer.showCloud(cloud_ptr);
-        pcl::io::savePCDFileASCII ("/home/will/cleaning/test_pcd.pcd", cloud);
-//        while (!viewer.wasStopped ())
-//        {
-//
-//        }
-
-
-
-        // Creating maps now
-//TODO Saving map to dataset
-//        hdf5_dataset::Hdf5Dataset h5(filename);
-//        h5.saveReachMapsToDataset(pose_col_filter, sphere_color, resolution);
-
-        double dif = ros::Duration( ros::Time::now() - startit).toSec();
-        ROS_INFO("Elasped time is %.2lf seconds.", dif);
-        ROS_INFO("Completed");
-        ros::spinOnce();
-        // sleep(10000);
-        return 1;
-        loop_rate.sleep();
-        count;
+    sphere_discretization::SphereDiscretization sd;
+    float r = 0.5;
+    octomap::point3d origin = octomap::point3d(0, 0, 0);  // This point will be the base of the robot
+    octomap::OcTree *tree = sd.generateBoxTree(origin, r, resolution);
+    std::vector<octomap::point3d> new_data;
+    ROS_INFO("Creating the box and discretizing with resolution: %f", resolution);
+    int sphere_count = 0;
+    for (octomap::OcTree::leaf_iterator it = tree->begin_leafs(max_depth), end = tree->end_leafs(); it != end; ++it) {
+        sphere_count++;
     }
-    return 0;
+    new_data.reserve(sphere_count);
+    for (octomap::OcTree::leaf_iterator it = tree->begin_leafs(max_depth), end = tree->end_leafs(); it != end; ++it) {
+        new_data.push_back(it.getCoordinate());
+    }
+//    if (debug) {
+        // show the octree to rviz
+//        visualization_msgs::Marker points;
+//        points.header.frame_id = "base_link";
+//        points.header.stamp = ros::Time::now();
+//        points.ns = "points_and_lines";
+//        points.action = visualization_msgs::Marker::ADD;
+//        points.pose.orientation.w = 1.0;
+//        points.id = 0;
+//        points.type = visualization_msgs::Marker::POINTS;
+//        points.scale.x = 0.01;
+//        points.scale.y = 0.01;
+//        points.color.g = 1.0f;
+//        points.color.a = 1.0;
+//        for (int i = 0; i < new_data.size(); i++) {
+//            geometry_msgs::Point p;
+//            p.x = new_data[i].x();
+//            p.y = new_data[i].y();
+//            p.z = new_data[i].z();
+//            points.points.push_back(p);
+//        }
+//        cube_pub.publish(points);
+//    }
+//  ros sleep
+//    ros::Duration(10).sleep();
+
+    ROS_INFO("Total no of spheres now: %lu", new_data.size());
+    ROS_INFO("Please hold ON. Spheres are discretized and all of the poses are checked for Ik solutions. May take some "
+             "time");
+
+    // A sphere is created in every voxel. The sphere may be created by default or other techniques.
+    // TODO Other techniques need to be modified. the user can specifiy which technique they want to use
+    // TODO The sphere discretization parameter and rotation of every poses will be taken as argument. If the final
+    // joints can rotate (0, 2pi) we dont need to rotate the poses.
+    // Every discretized points on spheres are converted to pose and all the poses are saved in a multimap with their
+    // corresponding sphere centers
+    // If the resolution is 0.01 the programs not responds
+    //TODO seperate raduise and resolutiion
+    float radius = resolution / 10;
+
+    VectorOfVectors sphere_coord;
+    sphere_coord.resize(new_data.size());
+
+    MultiVector pose_col;
+    pose_col.reserve(new_data.size() * 50);
+
+    MasterIkData data_ik;
+
+    for (int i = 0; i < new_data.size(); i++) {
+//        progressbar bar(new_data.size());
+        static std::vector<geometry_msgs::Pose> pose;
+        sd.convertPointToVector(new_data[i], sphere_coord[i]);
+        // create a sphere in the master_ik_data
+        Sphere sphere;
+        sphere.x = sphere_coord[i][0];
+        sphere.y = sphere_coord[i][1];
+        sphere.z = sphere_coord[i][2];
+
+
+        sd.make_sphere_poses(new_data[i], radius, pose);
+        for (int j = 0; j < pose.size(); j++) {
+            static std::vector<double> point_on_sphere;
+            sd.convertPoseToVector(pose[j], point_on_sphere);
+            pose_col.push_back(std::make_pair(point_on_sphere, &sphere_coord[i]));
+
+            // create a pose in the sphere
+            PoseOnSphere p;
+            p.x = point_on_sphere[0];
+            p.y = point_on_sphere[1];
+            p.z = point_on_sphere[2];
+            p.theta_x = point_on_sphere[3];
+            p.theta_y = point_on_sphere[4];
+            p.theta_z = point_on_sphere[5];
+            p.theta_w = point_on_sphere[6];
+
+            // call the ik_solvers
+            std::vector<joint> joints;
+            int solns;
+            // rviz arrow marker for the point on the sphere
+//            visualization_msgs::Marker arrow;
+//            arrow.header.frame_id = "base_link";
+//            arrow.header.stamp = ros::Time::now();
+//            arrow.ns = "points_and_lines";
+//            arrow.action = visualization_msgs::Marker::ADD;
+//            arrow.pose.orientation.w = 1.0;
+//            arrow.id = 0;
+//            arrow.type = visualization_msgs::Marker::ARROW;
+//            arrow.scale.x = 0.05;
+//            arrow.scale.y = 0.01;
+//            arrow.scale.z = 0.01;
+//            arrow.color.b = 1.0f;
+//            arrow.color.a = 1.0;
+//            geometry_msgs::Pose pose_arrow;
+//            pose_arrow.position.x = point_on_sphere[0];
+//            pose_arrow.position.y = point_on_sphere[1];
+//            pose_arrow.position.z = point_on_sphere[2];
+//            pose_arrow.orientation.x = point_on_sphere[3];
+//            pose_arrow.orientation.y = point_on_sphere[4];
+//            pose_arrow.orientation.z = point_on_sphere[5];
+//            pose_arrow.orientation.w = point_on_sphere[6];
+//            arrow.pose = pose_arrow;
+//
+//            marker_pub.publish(arrow);
+//            ros::Duration(0.1).sleep();
+//            get time
+//            ros::Time begin = ros::Time::now();
+            bool does_have_ik = robot.get_all_ik(point_on_sphere, joints, solns);
+//            ros::Time end = ros::Time::now();
+//            ros::Duration duration = end - begin;
+//            ROS_INFO("IK duration: %f", duration.toSec());
+
+            if (does_have_ik) {
+                // add the joints to the pose
+                p.add(joints);
+//                    ROS_INFO("Solution found");
+            }
+            // add the pose to the sphere
+            sphere.add(p);
+        }
+        //  add the sphere to the master_ik
+        data_ik.add(sphere);
+//        bar.update();
+    }
+
+    // get time
+    ros::Time end = ros::Time::now();
+    ros::Duration duration = end - begin;
+    ROS_INFO("Total time taken: %f", duration.toSec());
+    // Write the data to json
+    data_ik.write_data("/home/will/master_ik_data.json");
+    ROS_INFO("fini !");
+
 }

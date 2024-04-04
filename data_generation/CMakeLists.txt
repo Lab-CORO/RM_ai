@@ -8,10 +8,15 @@ project(data_generation)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  pcl_conversions
-  pcl_ros
-  roscpp
-  sensor_msgs
+        pcl_conversions
+        pcl_ros
+        roscpp
+        sensor_msgs
+        moveit_core
+        moveit_ros_planning
+
+        moveit_ros_planning_interface
+
 )
 # Find Octomap
 find_package(octomap REQUIRED)
@@ -216,7 +221,17 @@ add_definitions(${PCL_DEFINITIONS}  ${OCTOMAP_INCLUDE_DIRS})
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-add_executable(create_reachability_map src/create_reachability_map.cpp include/sphere_discretization.h src/sphere_discretization.cpp include/progressbar.hpp)
+add_executable(create_reachability_map
+        src/create_reachability_map.cpp
+        include/sphere_discretization.h
+        src/sphere_discretization.cpp
+        include/progressbar.hpp
+        src/master_ik_data.cpp
+        include/master_ik_data.h
+        include/json.hpp
+        include/robot.h
+        src/robot.cpp
+        )
 target_link_libraries(create_reachability_map ${catkin_LIBRARIES} ${OCTOMAP_LIBRARIES})
 add_dependencies(create_reachability_map ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -224,6 +239,6 @@ add_executable(example src/example.cpp)
 target_link_libraries(example ${catkin_LIBRARIES})
 
 #add the exe master_ik_data
-add_executable(master_ik_data src/master_ik_data.cpp include/create_reachability_map.h include/json.hpp)
-target_link_libraries(master_ik_data ${catkin_LIBRARIES})
-add_dependencies(master_ik_data ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+#add_executable(master_ik_data src/master_ik_data.cpp include/create_reachability_map.h include/json.hpp)
+#target_link_libraries(master_ik_data ${catkin_LIBRARIES})
+#add_dependencies(master_ik_data ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

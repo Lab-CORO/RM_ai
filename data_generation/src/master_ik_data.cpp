@@ -4,7 +4,8 @@
 
 #include "../include/master_ik_data.h"
 
-void master_ik_data::write_data(std::string filename) {
+
+void MasterIkData::write_data(std::string filename) {
     json j;
     j["resolution"] = resolution;
     j["radius"] = radius;
@@ -15,11 +16,11 @@ void master_ik_data::write_data(std::string filename) {
     }
 
     this->json_data = j;
-    std::ofstream o("master_ik_data.json");
-    o << j << std::endl;
+    std::ofstream o(filename);
+    o << j.dump(4) << std::endl;
 }
 
-void master_ik_data::load_data(json &j) {
+void MasterIkData::load_data(json &j) {
     std::ifstream i("./master_ik_data.json");
     j = json::parse(i);
     resolution = j["resolution"];
@@ -30,54 +31,71 @@ void master_ik_data::load_data(json &j) {
     // load spheres from the json
 }
 
-void pose::to_json(json &j) {
+void MasterIkData::add(Sphere &s) {
+    this->spheres.push_back(s);
+}
 
-    j["x"] = x;
-    j["y"] = y;
-    j["z"] = z;
-    j["roll"] = roll;
-    j["pitch"] = pitch;
-    j["yaw"] = yaw;
+void PoseOnSphere::to_json(json &j) {
+
+    j["x"] = this->x;
+    j["y"] = this->y;
+    j["z"] = this->z;
+    j["theta_x"] = this->theta_x;
+    j["theta_y"] = this->theta_y;
+    j["theta_z"] = this->theta_z;
+    j["theta_w"] = this->theta_w;
     // add all joints in the json
     for (int i = 0; i < this->joints.size(); i++) {
-        j["joints"][i]["j1"] = joints[i].j1;
-        j["joints"][i]["j2"] = joints[i].j2;
-        j["joints"][i]["j3"] = joints[i].j3;
-        j["joints"][i]["j4"] = joints[i].j4;
-        j["joints"][i]["j5"] = joints[i].j5;
-        j["joints"][i]["j6"] = joints[i].j6;
+        j["joints"][i]["j1"] = this->joints[i].j1;
+        j["joints"][i]["j2"] = this->joints[i].j2;
+        j["joints"][i]["j3"] = this->joints[i].j3;
+        j["joints"][i]["j4"] = this->joints[i].j4;
+        j["joints"][i]["j5"] = this->joints[i].j5;
+        j["joints"][i]["j6"] = this->joints[i].j6;
     }
 
 
 }
 
-void sphere::to_json(json &j) {
-    j["x"] = x;
-    j["y"] = y;
-    j["z"] = z;
+void PoseOnSphere::add(std::vector<joint> &j) {
+    for (int i = 0; i < j.size(); i++) {
+        this->joints.push_back(j[i]);
+    }
+}
+
+void Sphere::to_json(json &j) {
+    j["x"] = this->x;
+    j["y"] = this->y;
+    j["z"] = this->z;
     // add all poses in the json
     for (int i = 0; i < this->poses.size(); i++) {
-        poses[i].to_json(j["poses"][i]);
+        this->poses[i].to_json(j["poses"][i]);
     }
 }
 
+void Sphere::add(PoseOnSphere &p) {
+    this->poses.push_back(p);
+
+}
+/**
 //main
 int main() {
-    master_ik_data data;
+    MasterIkData data;
 //    create 3 sphere with 3 poses each and 3 joints each
     for (int i = 0; i < 3; i++) {
-        sphere s;
+        Sphere s;
         s.x = i;
         s.y = i;
         s.z = i;
         for (int j = 0; j < 3; j++) {
-            pose p;
+            PoseOnSphere p;
             p.x = j;
             p.y = j;
             p.z = j;
-            p.roll = j;
-            p.pitch = j;
-            p.yaw = j;
+            p.theta_x = j;
+            p.theta_y = j;
+            p.theta_z = j;
+            p.theta_w = j;
             for (int k = 0; k < 3; k++) {
                 joint j;
                 j.j1 = k;
@@ -88,15 +106,45 @@ int main() {
                 j.j6 = k;
                 p.joints.push_back(j);
             }
-            s.poses.push_back(p);
+            s.add(p);
         }
-        data.spheres.push_back(s);
+        data.add(s);
     }
-    data.write_data();
+    data.write_data("/home/will/master_ik_data.json");
     data.load_data(data.json_data);
 //    print the data sphere 2 pose 1 joint 2
     std::cout << data.spheres[2].poses[1].joints[0].j1 << std::endl;
 
 
     return 0;
+}**/
+
+//   joint joint::array2joint(std::vector<double> array) {
+//    /*
+//     * This function is used to convert an float64[] to a joint object
+//     */
+//    for(int i = 0; i < 6; i++) {
+//        this->j1 = array[0];
+//        this->j2 = array[1];
+//        this->j3 = array[2];
+//        this->j4 = array[3];
+//        this->j5 = array[4];
+//        this->j6 = array[5];
+//    }
+//    return *this;
+//}
+
+
+std::vector<double> joint::joint2array() {
+    /*
+     * This function is used to convert a joint object to a float64[]
+     */
+    std::vector<double> array;
+    array.push_back(this->j1);
+    array.push_back(this->j2);
+    array.push_back(this->j3);
+    array.push_back(this->j4);
+    array.push_back(this->j5);
+    array.push_back(this->j6);
+    return array;
 }

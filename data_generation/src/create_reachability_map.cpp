@@ -54,6 +54,8 @@ int main(int argc, char **argv) {
     //create the robot
     Robot robot("manipulator");
 
+    bool debug = false;
+
     ros::Time startit = ros::Time::now();
     float resolution = 0.3;  //previous 0.08
     static ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("/visualization_marker", 10, true);
@@ -91,31 +93,31 @@ int main(int argc, char **argv) {
     for (octomap::OcTree::leaf_iterator it = tree->begin_leafs(max_depth), end = tree->end_leafs(); it != end; ++it) {
         new_data.push_back(it.getCoordinate());
     }
-//    if (debug) {
-        // show the octree to rviz
-//        visualization_msgs::Marker points;
-//        points.header.frame_id = "base_link";
-//        points.header.stamp = ros::Time::now();
-//        points.ns = "points_and_lines";
-//        points.action = visualization_msgs::Marker::ADD;
-//        points.pose.orientation.w = 1.0;
-//        points.id = 0;
-//        points.type = visualization_msgs::Marker::POINTS;
-//        points.scale.x = 0.01;
-//        points.scale.y = 0.01;
-//        points.color.g = 1.0f;
-//        points.color.a = 1.0;
-//        for (int i = 0; i < new_data.size(); i++) {
-//            geometry_msgs::Point p;
-//            p.x = new_data[i].x();
-//            p.y = new_data[i].y();
-//            p.z = new_data[i].z();
-//            points.points.push_back(p);
-//        }
-//        cube_pub.publish(points);
-//    }
-//  ros sleep
-//    ros::Duration(10).sleep();
+    if (debug) {
+//         show the octree to rviz
+        visualization_msgs::Marker points;
+        points.header.frame_id = "base_link";
+        points.header.stamp = ros::Time::now();
+        points.ns = "points_and_lines";
+        points.action = visualization_msgs::Marker::ADD;
+        points.pose.orientation.w = 1.0;
+        points.id = 0;
+        points.type = visualization_msgs::Marker::POINTS;
+        points.scale.x = 0.01;
+        points.scale.y = 0.01;
+        points.color.g = 1.0f;
+        points.color.a = 1.0;
+        for (int i = 0; i < new_data.size(); i++) {
+            geometry_msgs::Point p;
+            p.x = new_data[i].x();
+            p.y = new_data[i].y();
+            p.z = new_data[i].z();
+            points.points.push_back(p);
+        }
+        cube_pub.publish(points);
+    }
+
+    ros::Duration(10).sleep();
 
     ROS_INFO("Total no of spheres now: %lu", new_data.size());
     ROS_INFO("Please hold ON. Spheres are discretized and all of the poses are checked for Ik solutions. May take some "
@@ -169,31 +171,33 @@ int main(int argc, char **argv) {
             // call the ik_solvers
             std::vector<joint> joints;
             int solns;
-            // rviz arrow marker for the point on the sphere
-//            visualization_msgs::Marker arrow;
-//            arrow.header.frame_id = "base_link";
-//            arrow.header.stamp = ros::Time::now();
-//            arrow.ns = "points_and_lines";
-//            arrow.action = visualization_msgs::Marker::ADD;
-//            arrow.pose.orientation.w = 1.0;
-//            arrow.id = 0;
-//            arrow.type = visualization_msgs::Marker::ARROW;
-//            arrow.scale.x = 0.05;
-//            arrow.scale.y = 0.01;
-//            arrow.scale.z = 0.01;
-//            arrow.color.b = 1.0f;
-//            arrow.color.a = 1.0;
-//            geometry_msgs::Pose pose_arrow;
-//            pose_arrow.position.x = point_on_sphere[0];
-//            pose_arrow.position.y = point_on_sphere[1];
-//            pose_arrow.position.z = point_on_sphere[2];
-//            pose_arrow.orientation.x = point_on_sphere[3];
-//            pose_arrow.orientation.y = point_on_sphere[4];
-//            pose_arrow.orientation.z = point_on_sphere[5];
-//            pose_arrow.orientation.w = point_on_sphere[6];
-//            arrow.pose = pose_arrow;
-//
-//            marker_pub.publish(arrow);
+            if (debug) {
+                // rviz arrow marker for the point on the sphere
+                visualization_msgs::Marker arrow;
+                arrow.header.frame_id = "base_link";
+                arrow.header.stamp = ros::Time::now();
+                arrow.ns = "points_and_lines";
+                arrow.action = visualization_msgs::Marker::ADD;
+                arrow.pose.orientation.w = 1.0;
+                arrow.id = 0;
+                arrow.type = visualization_msgs::Marker::ARROW;
+                arrow.scale.x = 0.05;
+                arrow.scale.y = 0.01;
+                arrow.scale.z = 0.01;
+                arrow.color.b = 1.0f;
+                arrow.color.a = 1.0;
+                geometry_msgs::Pose pose_arrow;
+                pose_arrow.position.x = point_on_sphere[0];
+                pose_arrow.position.y = point_on_sphere[1];
+                pose_arrow.position.z = point_on_sphere[2];
+                pose_arrow.orientation.x = point_on_sphere[3];
+                pose_arrow.orientation.y = point_on_sphere[4];
+                pose_arrow.orientation.z = point_on_sphere[5];
+                pose_arrow.orientation.w = point_on_sphere[6];
+                arrow.pose = pose_arrow;
+
+                marker_pub.publish(arrow);
+            }
 //            ros::Duration(0.1).sleep();
 //            get time
 //            ros::Time begin = ros::Time::now();

@@ -238,6 +238,16 @@ add_dependencies(create_reachability_map ${${PROJECT_NAME}_EXPORTED_TARGETS} ${c
 add_executable(example src/example.cpp)
 target_link_libraries(example ${catkin_LIBRARIES})
 
+add_executable(data_generator src/data_generator.cpp 
+                include/data_generator.h 
+                include/json.hpp  
+                src/master_ik_data.cpp 
+                include/master_ik_data.h 
+                include/robot.h
+                src/robot.cpp)
+target_link_libraries(data_generator ${catkin_LIBRARIES})
+add_dependencies(data_generator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 #add the exe master_ik_data
 #add_executable(master_ik_data src/master_ik_data.cpp include/create_reachability_map.h include/json.hpp)
 #target_link_libraries(master_ik_data ${catkin_LIBRARIES})

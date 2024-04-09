@@ -20,16 +20,109 @@ void MasterIkData::write_data(std::string filename) {
     o << j.dump(4) << std::endl;
 }
 
-void MasterIkData::load_data(json &j) {
-    std::ifstream i("./master_ik_data.json");
-    j = json::parse(i);
+
+
+void MasterIkData::load_data(std::string filename) {
+    std::ifstream i(filename);
+    json j = json::parse(i);
+
     resolution = j["resolution"];
     radius = j["radius"];
     sphere_sample = j["sphere_sample"];
 
+    for (auto& sphere_json : j["spheres"]) {
+        Sphere s;
+        s.x = sphere_json["x"];
+        s.y = sphere_json["y"];
+        s.z = sphere_json["z"];
+
+        for (auto& pose_json : sphere_json["poses"]) {
+            PoseOnSphere p;
+            p.x = pose_json["x"];
+            p.y = pose_json["y"];
+            p.z = pose_json["z"];
+            p.theta_x = pose_json["theta_x"];
+            p.theta_y = pose_json["theta_y"];
+            p.theta_z = pose_json["theta_z"];
+            p.theta_w = pose_json["theta_w"];
+
+            std::vector<joint> joints;
+            for (auto& joint_json : pose_json["joints"]) {
+                joint jo;
+                // Assigne les valeurs de joint ici
+                jo.j1 = joint_json["j1"];
+                jo.j2 = joint_json["j2"];
+                jo.j3 = joint_json["j3"];
+                jo.j4 = joint_json["j4"];
+                jo.j5 = joint_json["j5"];
+                jo.j6 = joint_json["j6"];
+                joints.push_back(jo);
+            }
+            p.add(joints); // Assurez-vous que cette méthode fonctionne comme prévu
+            // Il semble y avoir une intention de mapper PoseOnSphere à ses joints ici
+            // Assurez-vous que l'ajout au dict_data est correct
+            s.add(p); // Vérifiez que cela ajoute les poses correctement à Sphere
+        }
+
+        this->spheres.push_back(s);
+    }
+    ROS_INFO("Data loaded");
+}
+
+
+
+/**
+void MasterIkData::load_data(json &j, std::string filename) {
+    std::ifstream i(filename); //"./master_ik_data.json"
+    j = json::parse(i);
+    resolution = j["resolution"];
+    radius = j["radius"];
+    sphere_sample = j["sphere_sample"];
+//    load the json data in the data_dict map
+    Sphere s;
+    for (int i = 0; i < j["spheres"].size(); i++) {
+
+        s.x = j["spheres"][i]["x"];
+        s.y = j["spheres"][i]["y"];
+        s.z = j["spheres"][i]["z"];
+        PoseOnSphere p;
+        for (int k = 0; k < j["spheres"][i]["poses"].size(); k++) {
+            std::map<PoseOnSphere, std::vector<joint>> pose;
+//            PoseOnSphere p;
+            p.x = j["spheres"][i]["poses"][k]["x"];
+            p.y = j["spheres"][i]["poses"][k]["y"];
+            p.z = j["spheres"][i]["poses"][k]["z"];
+            p.theta_x = j["spheres"][i]["poses"][k]["theta_x"];
+            p.theta_y = j["spheres"][i]["poses"][k]["theta_y"];
+            p.theta_z = j["spheres"][i]["poses"][k]["theta_z"];
+            p.theta_w = j["spheres"][i]["poses"][k]["theta_w"];
+            std::vector<joint> joints = {};
+            for (int l = 0; l < j["spheres"][i]["poses"][k]["joints"].size(); l++) {
+                joint jo;
+                jo.j1 = j["spheres"][i]["poses"][k]["joints"][l]["j1"];
+                jo.j2 = j["spheres"][i]["poses"][k]["joints"][l]["j2"];
+                jo.j3 = j["spheres"][i]["poses"][k]["joints"][l]["j3"];
+                jo.j4 = j["spheres"][i]["poses"][k]["joints"][l]["j4"];
+                jo.j5 = j["spheres"][i]["poses"][k]["joints"][l]["j5"];
+                jo.j6 = j["spheres"][i]["poses"][k]["joints"][l]["j6"];
+                joints.push_back(jo);
+
+            }
+            p.add(joints);
+            pose[p] = joints;
+            this->dict_data[s] = pose;
+            s.add(p);
+        }
+
+        this->spheres.push_back(s);
+    }
+
+    ROS_INFO("Data loaded");
+
+
 
     // load spheres from the json
-}
+}**/
 
 void MasterIkData::add(Sphere &s) {
     this->spheres.push_back(s);
@@ -61,6 +154,14 @@ void PoseOnSphere::add(std::vector<joint> &j) {
     for (int i = 0; i < j.size(); i++) {
         this->joints.push_back(j[i]);
     }
+}
+
+bool PoseOnSphere::has_joints() {
+    return !this->joints.empty();
+}
+
+void PoseOnSphere::remove_joints() {
+    this->joints.clear();
 }
 
 void Sphere::to_json(json &j) {
@@ -135,16 +236,16 @@ int main() {
 //}
 
 
-std::vector<double> joint::joint2array() {
-    /*
-     * This function is used to convert a joint object to a float64[]
-     */
-    std::vector<double> array;
-    array.push_back(this->j1);
-    array.push_back(this->j2);
-    array.push_back(this->j3);
-    array.push_back(this->j4);
-    array.push_back(this->j5);
-    array.push_back(this->j6);
-    return array;
-}
+//std::vector<double> joint::joint2array() {
+//    /*
+//     * This function is used to convert a joint object to a float64[]
+//     */
+//    std::vector<double> array;
+//    array.push_back(this->j1);
+//    array.push_back(this->j2);
+//    array.push_back(this->j3);
+//    array.push_back(this->j4);
+//    array.push_back(this->j5);
+//    array.push_back(this->j6);
+//    return array;
+//}

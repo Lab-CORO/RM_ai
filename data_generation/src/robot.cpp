@@ -102,16 +102,44 @@ bool Robot::get_all_ik(const std::vector<double> &pose,
 
 
 bool Robot::checkCollision(const std::vector<double> &joint_positions) {
-    // Obtenez l'état actuel du robot
-    moveit::core::RobotState &current_state = planning_scene_->getCurrentStateNonConst();
 
-    // Appliquez les positions des joints fournies à l'état actuel du robot
-    current_state.setJointGroupPositions(joint_model_group_, joint_positions);
+//    robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
+//    const moveit::core::RobotModelPtr& kinematic_model = robot_model_loader.getModel();
+//    planning_scene::PlanningScene planning_scene(kinematic_model);
 
-    // Assurez-vous que la nouvelle configuration des joints est dans les limites acceptables
-    if (!current_state.satisfiesBounds(joint_model_group_)) {
-        ROS_INFO_STREAM("La configuration des joints est hors des limites acceptables.");
-        return false; // ou vous pouvez choisir de retourner true, selon la manière dont vous souhaitez gérer cette situation
+//    const moveit::core::JointModelGroup* joint_model_group = current_state.getJointModelGroup("manipulator");
+
+    sleep(5);
+    if (!box_init) {
+        moveit_msgs::CollisionObject collision_object;
+        collision_object.header.frame_id = "base_link";
+        collision_object.id = "obstacle";
+
+        shape_msgs::SolidPrimitive primitive;
+        primitive.type = primitive.BOX;
+        primitive.dimensions.resize(3);
+        primitive.dimensions[0] = 0.5; // x
+        primitive.dimensions[1] = 0.5; // y
+        primitive.dimensions[2] = 0.5; // z
+
+        geometry_msgs::Pose box_pose;
+        box_pose.orientation.w = 1.0;
+        box_pose.position.x = 0.5;
+        box_pose.position.y = 0.0;
+        box_pose.position.z = 0;
+
+        collision_object.primitives.push_back(primitive);
+        collision_object.primitive_poses.push_back(box_pose);
+        collision_object.operation = collision_object.ADD;
+
+        std::vector<moveit_msgs::CollisionObject> collision_objects;
+        collision_objects.push_back(collision_object);
+
+//        current_state_.addCollisionObjects(collision_objects);
+        current_state_.applyCollisionObjects(collision_objects);
+
+
+        box_init = true;
     }
 
     // Préparation de la requête et du résultat de collision
@@ -119,20 +147,16 @@ bool Robot::checkCollision(const std::vector<double> &joint_positions) {
     collision_detection::CollisionResult collision_result;
     collision_request.contacts = true; // Option pour obtenir des détails sur les contacts en cas de collision
     collision_request.max_contacts = 1000; // Nombre maximal de contacts à rapporter
-
+    moveit::core::RobotState& current_state_NON = planning_scene_->getCurrentStateNonConst();
     // Vérification des collisions avec l'environnement
-    planning_scene_->checkCollision(collision_request, collision_result, current_state, planning_scene_->getAllowedCollisionMatrix());
+    planning_scene_->checkCollision(collision_request, collision_result, current_state_NON, planning_scene_->getAllowedCollisionMatrix());
 
-    // Log des contacts en cas de collision
     if (collision_result.collision) {
         return true;
     } else {
         return false;
     }
 }
-
-
-
 
 
 bool Robot::move_cartesian(geometry_msgs::Pose &pose) {

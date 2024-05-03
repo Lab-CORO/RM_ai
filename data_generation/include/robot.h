@@ -8,23 +8,13 @@
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include "moveit_msgs/GetPositionIK.h"
-
+#include <moveit_msgs/ApplyPlanningScene.h>
 #include <Eigen/Dense>
 
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
-
 #include "master_ik_data.h"
 
 class Robot {
-//    ros::NodeHandle node_handle;
-//    const std::string PLANNING_GROUP = "manipulator";
-//    moveit::planning_interface::MoveGroupInterface move_group_interface;
-//    moveit::core::RobotStatePtr current_state;
-
-//    planning_scene_monitor::PlanningSceneMonitorPtr planning_scene_monitor_;
-
-//    moveit::core::RobotStatePtr kinematic_state(new moveit::core::RobotState(kinematic_model));
-
 
 public:
     Robot(const std::string& planning_group);
@@ -40,6 +30,12 @@ private:
     const robot_state::JointModelGroup* joint_model_group_;
     planning_scene::PlanningScenePtr planning_scene_;
     moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+    moveit::planning_interface::PlanningSceneInterface planning_scene_interface_;
+//    moveit::core::RobotState &current_state_NonConst;
+    moveit::planning_interface::PlanningSceneInterface current_state_;
+    bool box_init;
+
+
 
 };
 

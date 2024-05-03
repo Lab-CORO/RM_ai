@@ -8,6 +8,10 @@ DataGenerator::DataGenerator(std::string filename): robot("manipulator") {
     this->filename = filename;
     this->ik_data.load_data(this->filename);
     this->ik_data_result = MasterIkData();
+    this->ik_data_result.resolution = this->ik_data.resolution;
+    this->ik_data_result.radius = this->ik_data.radius;
+    this->ik_data_result.sphere_sample = this->ik_data.sphere_sample;
+
 }
 
 DataGenerator::~DataGenerator() {
@@ -19,9 +23,20 @@ void DataGenerator::data_comparator() {
         Sphere s = this->ik_data.spheres[i];
         // create a sphere
         Sphere sphere_result;
+        sphere_result.x = s.x;
+        sphere_result.y = s.y;
+        sphere_result.z = s.z;
         for (int k = 0; k < s.poses.size(); k++) {
             PoseOnSphere pose_on_sphere_result;
             PoseOnSphere pose_on_sphere = s.poses[k];
+            pose_on_sphere_result.x = pose_on_sphere.x;
+            pose_on_sphere_result.y = pose_on_sphere.y;
+            pose_on_sphere_result.z = pose_on_sphere.z;
+            pose_on_sphere_result.theta_x = pose_on_sphere.theta_x;
+            pose_on_sphere_result.theta_y = pose_on_sphere.theta_y;
+            pose_on_sphere_result.theta_z = pose_on_sphere.theta_z;
+            pose_on_sphere_result.theta_w = pose_on_sphere.theta_w;
+
             // if p has a joint, test it
             if (pose_on_sphere.has_joints()) {
             // test the joint pose with plan
